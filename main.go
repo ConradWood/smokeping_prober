@@ -21,6 +21,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sparrc/go-ping"
 	"net/http"
+	"os"
 	"time"
 )
 
@@ -36,13 +37,15 @@ var (
 	defaultBuckets = "5e-05,0.0001,0.0002,0.0004,0.0008,0.0016,0.0032,0.0064,0.0128,0.0256,0.0512,0.1024,0.2048,0.4096,0.8192,1.6384,3.2768,6.5536,13.1072,26.2144"
 	interval       = flag.Int("ping.interval", 1, "Ping interval seconds")
 	timeout        = flag.Int("ping.timeout", 1, "ping timeout")
+	entries        []*pingEntry
 )
 
 type pingEntry struct {
-	received  bool
-	hostname  string
-	lastReset time.Time
-	pinger    *ping.Pinger
+	received    bool
+	host        string
+	lastReset   time.Time
+	pinger      *ping.Pinger
+	lastStarted time.Time
 }
 
 func main() {
@@ -50,9 +53,11 @@ func main() {
 	newHisto(*buckets)
 	hosts := flag.Args()
 	for _, h := range hosts {
-		go pingThread(h)
+		pe := &pingEntry{host: h}
+		entries = append(entries, pe)
+		go pe.pingThread()
 	}
-
+	go pingWatcher()
 	http.Handle(*metricsPath, promhttp.Handler())
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(`<html>
@@ -70,17 +75,31 @@ func main() {
 		fmt.Printf("Failed to start listener on %s: %s\n", *listenAddress, err)
 	}
 }
-func pingThread(host string) {
+func pingWatcher() {
 	for {
-		if *debug {
-			fmt.Printf("Starting pinger for %s...\n", host)
+		time.Sleep(time.Duration(45) * time.Second)
+		for _, p := range entries {
+			secs := time.Since(p.lastStarted).Seconds()
+			if secs > 120 {
+				fmt.Printf("TODO: write new pinger library or fix library which times out reliably\n")
+				fmt.Printf("Pinger for %s hangs since %v (%0.2f seconds)\n", p.host, p.lastStarted, secs)
+				os.Exit(10)
+			}
 		}
-		pinger, err := ping.NewPinger(host)
+	}
+}
+
+func (pe *pingEntry) pingThread() {
+	for {
+		pe.lastStarted = time.Now()
+		if *debug {
+			fmt.Printf("Starting pinger for %s...\n", pe.host)
+		}
+		pinger, err := ping.NewPinger(pe.host)
 		if err != nil {
 			fmt.Printf("failed to create pinger: %s\n", err.Error())
 			return
 		}
-		pe := &pingEntry{pinger: pinger, hostname: host}
 		//		pinger.Interval = *interval
 		pinger.Count = 1
 		pinger.Timeout = time.Duration(*timeout) * time.Second
@@ -93,18 +112,4 @@ func pingThread(host string) {
 		// so this is seems about right
 		time.Sleep(time.Duration(*interval) * time.Second)
 	}
-}
-
-func pingerThread() {
-	/*
-		for {
-			for _, p := range pingers {
-				fmt.Printf("Host: %s, IP=%s, sent=%d, received: %d\n", p.hostname, p.pinger.IPAddr(), p.pinger.PacketsSent, p.pinger.PacketsRecv)
-				packetsTx.WithLabelValues(p.pinger.IPAddr().String(), p.hostname).Set(float64(p.pinger.PacketsSent))
-				packetsRx.WithLabelValues(p.pinger.IPAddr().String(), p.hostname).Set(float64(p.pinger.PacketsRecv))
-				p.ResetIfDue()
-			}
-			time.Sleep(*interval)
-		}
-	*/
 }
