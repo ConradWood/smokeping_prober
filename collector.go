@@ -84,11 +84,17 @@ func (pe *pingEntry) Ping() {
 	pe.pinger.Run()
 }
 func (pe *pingEntry) Hostname() string {
-	return pe.pinger.Addr()
+	if pe.hostname == "" {
+		pe.hostname = pe.pinger.Addr()
+	}
+	return pe.hostname
 
 }
 func (pe *pingEntry) Address() string {
-	return pe.pinger.IPAddr().String()
+	if pe.address == "" {
+		pe.address = pe.pinger.IPAddr().String()
+	}
+	return pe.address
 }
 
 func (pe *pingEntry) OnRecv(pkt *ping.Packet) {

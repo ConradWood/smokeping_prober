@@ -46,6 +46,8 @@ type pingEntry struct {
 	lastReset   time.Time
 	pinger      *ping.Pinger
 	lastStarted time.Time
+	hostname    string
+	address     string
 }
 
 func main() {
