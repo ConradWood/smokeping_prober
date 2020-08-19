@@ -109,6 +109,7 @@ func (pe *pingEntry) pingThread() {
 		pinger.SetPrivileged(*privileged)
 		pinger.OnRecv = pe.OnRecv
 		pinger.OnFinish = pe.OnFinish
+		pe.pinger = pinger
 		pe.Ping()
 		// technically we sleep for "interval+ping_duration", but that's ok. either it's a few ms or timeout
 		// so this is seems about right

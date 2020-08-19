@@ -80,6 +80,12 @@ func newHisto(buckets string) {
 	prometheus.MustRegister(histo)
 }
 func (pe *pingEntry) Ping() {
+	if pe == nil {
+		panic("pe is nil")
+	}
+	if pe.pinger == nil {
+		panic("pinger is nil")
+	}
 	packetsTx.WithLabelValues(pe.Hostname(), pe.Address()).Inc()
 	pe.pinger.Run()
 }
